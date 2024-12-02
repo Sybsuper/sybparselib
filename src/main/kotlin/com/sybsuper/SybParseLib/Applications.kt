@@ -13,7 +13,7 @@ val newDigit = { res: Char -> res.digitToInt() } applyWith digitParser
 /**
  * A parser that parses a sequence of digits and converts them to an integer.
  */
-val natural = { res: List<Int> -> res.fold(0) { acc, x -> acc * 10 + x } } applyWith greedy(newDigit)
+val natural = { res: List<Int> -> res.fold(0) { acc, x -> acc * 10 + x } } applyWith greedy1(newDigit)
 
 /**
  * A parser that parses an optional negative sign followed by a natural number, returning the integer value.
@@ -25,9 +25,24 @@ val integer =
  * A parser that parses an identifier starting with a letter followed by letters or digits. ([a-zA-Z][a-zA-Z0-9]*)
  */
 val identifier =
-    { letter: Char -> { letters: List<Char> -> listOf(letter) + letters } } applyWith satisfy { it.isLetter() } and greedy(
+    { letter: Char -> { letters: List<Char> -> listOf(letter) + letters } } applyWith satisfy { it.isLetter() } and greedy1(
         satisfy { it.isLetterOrDigit() })
 
+/**
+ * A parser that parses one white space character.
+ * Uses [Char.isWhitespace](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.text/is-whitespace.html).
+ */
+val whitespace: Parser<Char, Char> = satisfy { it.isWhitespace() }
+
+/**
+ * A parser that parses zero or more white space characters.
+ */
+val whitespaces: Parser<Char,List<Char>> = greedy(whitespace)
+
+/**
+ * Pads the parser with zero or more whitespaces on the left and right side.
+ */
+fun <A: Any> whitespaced(parser: Parser<Char, A>): Parser<Char, A> = whitespaces andR parser andL whitespaces
 /**
  * A parser that parses an expression enclosed in parentheses.
  * @param parser The parser for the expression inside the parentheses.
