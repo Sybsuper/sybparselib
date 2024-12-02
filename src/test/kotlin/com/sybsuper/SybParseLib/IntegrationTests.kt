@@ -5,18 +5,11 @@ import kotlin.test.assertEquals
 
 class IntegrationTests {
     open class JsonObject {
-        companion object {
-            private fun jsonParser(input: Pair<List<Char>, Int>): List<Pair<JsonObject, Int>> {
-                val parser: Parser<Char, JsonObject> =
-                    JsonString.Companion::parse or
-                            JsonInt::parse or
-                            JsonDouble::parse or
-                            JsonList::parse or
-                            JsonMap::parse
+        companion object : Parser<Char, JsonObject> {
+            override fun invoke(input: Pair<List<Char>, Int>): List<Pair<JsonObject, Int>> {
+                val parser: Parser<Char, JsonObject> = JsonString or JsonInt or JsonDouble or JsonList or JsonMap
                 return parser(input)
             }
-
-            val jsonParser: Parser<Char, JsonObject> = ::jsonParser
         }
 
         override fun equals(other: Any?): Boolean {
@@ -25,8 +18,8 @@ class IntegrationTests {
     }
 
     class JsonString(val value: String = "") : JsonObject() {
-        companion object {
-            fun parse(xs: Pair<List<Char>, Int>): List<Pair<JsonString, Int>> {
+        companion object : Parser<Char, JsonString> {
+            override fun invoke(xs: Pair<List<Char>, Int>): List<Pair<JsonString, Int>> {
                 return escapedString(xs).map { JsonString(it.first.joinToString(separator = "")) to it.second }
             }
         }
@@ -39,14 +32,16 @@ class IntegrationTests {
     class JsonList(
         val list: List<JsonObject> = emptyList()
     ) : JsonObject() {
-        companion object {
-            fun parse(xs: Pair<List<Char>, Int>): List<Pair<JsonList, Int>> {
+        companion object : Parser<Char, JsonList> {
+            override fun invoke(xs: Pair<List<Char>, Int>): List<Pair<JsonList, Int>> {
                 val res =
                     { it: List<JsonObject> -> JsonList(it) } applyWith bracketed(
-                        whitespaced(parserListOf(
-                            jsonParser,
-                            whitespaced(symbol(','))
-                        ))
+                        whitespaced(
+                            parserListOf(
+                                JsonObject,
+                                whitespaced(symbol(','))
+                            )
+                        )
                     )
                 return res(xs)
             }
@@ -60,20 +55,22 @@ class IntegrationTests {
     class JsonMap(
         val map: Map<String, JsonObject> = emptyMap()
     ) : JsonObject() {
-        companion object {
-            fun parse(xs: Pair<List<Char>, Int>): List<Pair<JsonMap, Int>> {
+        companion object : Parser<Char, JsonMap> {
+            override fun invoke(xs: Pair<List<Char>, Int>): List<Pair<JsonMap, Int>> {
                 val keyValuePairParser =
                     ({ x: JsonString, y: JsonObject -> x.value to y }.curried() applyWith
-                            (whitespaces andR JsonString::parse)
+                            (whitespaces andR JsonString)
                             andL whitespaced(symbol(':'))
-                            and jsonParser)
+                            and JsonObject)
                 val res =
-                    { it: List<Pair<String, JsonObject>> -> JsonMap(it.toMap()) } applyWith whitespaced(braced(
-                        parserListOf(
-                            keyValuePairParser,
-                            whitespaced(symbol(','))
+                    { it: List<Pair<String, JsonObject>> -> JsonMap(it.toMap()) } applyWith whitespaced(
+                        braced(
+                            parserListOf(
+                                keyValuePairParser,
+                                whitespaced(symbol(','))
+                            )
                         )
-                    ))
+                    )
                 return res(xs)
             }
         }
@@ -86,8 +83,8 @@ class IntegrationTests {
     class JsonInt(
         val value: Int = 0
     ) : JsonObject() {
-        companion object {
-            fun parse(xs: Pair<List<Char>, Int>): List<Pair<JsonInt, Int>> {
+        companion object : Parser<Char, JsonInt> {
+            override fun invoke(xs: Pair<List<Char>, Int>): List<Pair<JsonInt, Int>> {
                 val res = integer(xs)
                 return res.map { JsonInt(it.first) to it.second }
             }
@@ -101,8 +98,8 @@ class IntegrationTests {
     class JsonDouble(
         val value: Double = 0.0
     ) : JsonObject() {
-        companion object {
-            fun parse(xs: Pair<List<Char>, Int>): List<Pair<JsonDouble, Int>> {
+        companion object : Parser<Char, JsonDouble> {
+            override fun invoke(xs: Pair<List<Char>, Int>): List<Pair<JsonDouble, Int>> {
                 val res = { x: Int, y: Int ->
                     JsonDouble(
                         "$x.$y".toDouble()
@@ -119,7 +116,7 @@ class IntegrationTests {
 
     @Test
     fun `token parser should match a sequence of tokens`() {
-        val parser = JsonObject.jsonParser
+        val parser = JsonObject
 
         val result = parser(
             ("{\n" +
