@@ -1,6 +1,8 @@
 package com.sybsuper.SybParseLib
 
-typealias Parser<S, R> = (Pair<List<S>, Int>) -> List<Pair<R, Int>>
+typealias ParserInput<S> = Pair<List<S>, Int>
+typealias ParserOutput<R> = List<Pair<R, Int>>
+typealias Parser<S, R> = (ParserInput<S>) -> ParserOutput<R>
 
 /**
  * A parser that matches any symbol.
