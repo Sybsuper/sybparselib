@@ -5,6 +5,15 @@ import kotlin.test.assertEquals
 
 class DerrivedTest {
     @Test
+    fun `sequence parses a sequence of parsers`() {
+        val parser = anySymbol<Char>()
+        val sequenceParser = sequence(listOf(parser, parser, parser))
+
+        val result = sequenceParser("abc".toList() to 0)
+        assertEquals(listOf("abc".toList() to 3), result)
+    }
+
+    @Test
     fun `many parser parses 0 or more`() {
         val parser = anySymbol<Char>()
         val manyParser = many(parser)

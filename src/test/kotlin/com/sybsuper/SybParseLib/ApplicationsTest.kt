@@ -54,6 +54,19 @@ class ApplicationsTest {
     }
 
     @Test
+    fun `quoted parses content within quotes`() {
+        val parser = symbol('a')
+        val result = quoted(parser)("\"a\"".toList() to 0)
+        assertEquals(listOf('a' to 3), result)
+    }
+
+    @Test
+    fun `escapedString parses escape characters`() {
+        val result = escapedString("\"\\n\\r\\t\\b\\f\\\\\\\\\\u12fa\\\"\"".toList() to 0)
+        assertEquals(listOf("\n\r\t\b\u000c\\\\\u12fa\"".toList() to 24), result)
+    }
+
+    @Test
     fun `parenthesised parses content within parentheses`() {
         val parser = symbol('a')
         val result = parenthesised(parser)("(a)".toList() to 0)

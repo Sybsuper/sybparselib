@@ -13,7 +13,7 @@ val newDigit = { res: Char -> res.digitToInt() } applyWith digitParser
 /**
  * A parser that parses a sequence of digits and converts them to an integer.
  */
-val natural = { res: List<Int> -> res.fold(0) { acc, x -> acc * 10 + x } } applyWith greedy(newDigit)
+val natural = { res: List<Int> -> res.fold(0) { acc, x -> acc * 10 + x } } applyWith greedy1(newDigit)
 
 /**
  * A parser that parses an optional negative sign followed by a natural number, returning the integer value.
@@ -25,8 +25,51 @@ val integer =
  * A parser that parses an identifier starting with a letter followed by letters or digits. ([a-zA-Z][a-zA-Z0-9]*)
  */
 val identifier =
-    { letter: Char -> { letters: List<Char> -> listOf(letter) + letters } } applyWith satisfy { it.isLetter() } and greedy(
+    { letter: Char -> { letters: List<Char> -> listOf(letter) + letters } } applyWith satisfy { it.isLetter() } and greedy1(
         satisfy { it.isLetterOrDigit() })
+
+/**
+ * A parser that parses one white space character.
+ * Uses [Char.isWhitespace](https://kotlinlang.org/api/latest/jvm/stdlib/kotlin.text/is-whitespace.html).
+ */
+val whitespace: Parser<Char, Char> = satisfy { it.isWhitespace() }
+
+/**
+ * A parser that parses zero or more white space characters.
+ */
+val whitespaces: Parser<Char, List<Char>> = greedy(whitespace)
+
+/**
+ * A parser that parses a string enclosed in double quotes with escaped characters with a backslash.
+ */
+val escapedString: Parser<Char, List<Char>> = { xs ->
+    val escapeChar = symbol('\\')
+    val hexParser = satisfy<Char> { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }
+    val unicode = {it: List<Char> -> it.joinToString("").toInt(16).toChar()} applyWith (token("\\u".toList()) andR sequence((1..4).map { hexParser }))
+    val escapedChar = { it: Char ->
+        when (it) {
+            'n' -> '\n'
+            'r' -> '\r'
+            't' -> '\t'
+            'b' -> '\b'
+            'f' -> '\u000c'
+            '\\' -> '\\'
+            '"' -> '"'
+            else -> it
+        }
+    } applyWith (escapeChar andR satisfy { it in listOf('n', 'r','t', 'b','f', '\\', '"') })
+    val regularChar = satisfy<Char> { it != '\\' && it != '"' }
+    val stringContent = greedy(unicode biasedOr escapedChar or regularChar)
+    val quotedString = quoted(stringContent)
+    quotedString(xs)
+}
+
+fun <A: Any> quoted(parser: Parser<Char, A>): Parser<Char, A> = symbol('"') andR parser andL symbol('"')
+
+/**
+ * Pads the parser with zero or more whitespaces on the left and right side.
+ */
+fun <A : Any> whitespaced(parser: Parser<Char, A>): Parser<Char, A> = whitespaces andR parser andL whitespaces
 
 /**
  * A parser that parses an expression enclosed in parentheses.
