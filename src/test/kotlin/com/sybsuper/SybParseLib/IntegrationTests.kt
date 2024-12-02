@@ -27,8 +27,7 @@ class IntegrationTests {
     class JsonString(val value: String = "") : JsonObject() {
         companion object {
             fun parse(xs: Pair<List<Char>, Int>): List<Pair<JsonString, Int>> {
-                val res = pack(symbol('"'), greedy(satisfy { it != '"' }), symbol('"'))(xs)
-                return res.map { JsonString(it.first.joinToString(separator = "")) to it.second }
+                return escapedString(xs).map { JsonString(it.first.joinToString(separator = "")) to it.second }
             }
         }
 
@@ -63,11 +62,15 @@ class IntegrationTests {
     ) : JsonObject() {
         companion object {
             fun parse(xs: Pair<List<Char>, Int>): List<Pair<JsonMap, Int>> {
+                val keyValuePairParser =
+                    ({ x: JsonString, y: JsonObject -> x.value to y }.curried() applyWith
+                            (whitespaces andR JsonString::parse)
+                            andL whitespaced(symbol(':'))
+                            and jsonParser)
                 val res =
                     { it: List<Pair<String, JsonObject>> -> JsonMap(it.toMap()) } applyWith whitespaced(braced(
                         parserListOf(
-                            { x: JsonString, y: JsonObject -> x.value to y }.curried() applyWith (whitespaces andR JsonString::parse)
-                                    andL whitespaced(symbol(':')) and jsonParser,
+                            keyValuePairParser,
                             whitespaced(symbol(','))
                         )
                     ))
@@ -120,7 +123,7 @@ class IntegrationTests {
 
         val result = parser(
             ("{\n" +
-                    "\t\"abc\": [1, 12.34   , -2.3 , -30,  {  \"a\":1}],\"b\":{\"c\":\"d\"}}").toList() to 0
+                    "\t\"abc\": [1, 12.34   , -2.3 , -30,  {  \"a\":1}],\"b\":{\"c\":\"\\n\\td\"}}").toList() to 0
         )
 
         assertEquals(
@@ -141,7 +144,7 @@ class IntegrationTests {
                     ),
                     "b" to JsonMap(
                         mapOf(
-                            "c" to JsonString("d")
+                            "c" to JsonString("\n\td")
                         )
                     )
                 )
